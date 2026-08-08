@@ -24,14 +24,18 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
 
       - name: Run IAM audits
+        env:
+          LOOKBACK_HOURS: 24 # matches the daily schedule above
         run: |
           set -uo pipefail
           chmod +x ./*.sh
           mkdir -p findings
-          ./gcloud_unreskeys.sh      | tee findings/unrestricted_keys.txt
-          ./sa_key_age_audit.sh      | tee findings/stale_sa_keys.txt
-          ./public_access_audit.sh   | tee findings/public_access.txt
-          ./privileged_roles_audit.sh | tee findings/privileged_roles.txt
+          ./gcloud_unreskeys.sh          | tee findings/unrestricted_keys.txt
+          ./sa_key_age_audit.sh          | tee findings/stale_sa_keys.txt
+          ./public_access_audit.sh       | tee findings/public_access.txt
+          ./privileged_roles_audit.sh    | tee findings/privileged_roles.txt
+          ./audit_log_review.sh          | tee findings/audit_log_review.txt
+          ./privilege_escalation_audit.sh | tee findings/privilege_escalation.txt
 
       - name: Upload findings
         if: always()
