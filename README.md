@@ -1,7 +1,7 @@
-# gcp-iam
+# gcp-security-audit
 
-Scripts for auditing Google Cloud IAM and API key hygiene across every
-project in an org. Mostly loops.
+Scripts for auditing Google Cloud IAM, API key hygiene, and suspicious
+activity across every project in an org. Mostly loops.
 
 ## What's here
 
@@ -62,7 +62,7 @@ before running against anything sensitive.
 
 ## Running on a schedule (CI)
 
-[`.github/workflows/gcp-iam-audit.yml`](.github/workflows/gcp-iam-audit.yml)
+[`.github/workflows/gcp-security-audit.yml`](.github/workflows/gcp-security-audit.yml)
 runs all six flag-raising audits daily via GitHub Actions and fails the run
 (uploading results as a build artifact) if anything is found, so drift and
 suspicious activity show up without anyone having to remember to run these

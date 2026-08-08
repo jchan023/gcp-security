@@ -1,4 +1,4 @@
-name: GCP IAM Audit
+name: GCP Security Audit
 
 on:
   schedule:
@@ -41,14 +41,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: gcp-iam-findings-${{ github.run_number }}
+          name: gcp-security-findings-${{ github.run_number }}
           path: findings/
           retention-days: 90
 
       - name: Fail if any audit flagged something
         run: |
           if grep -rL "^No " findings/ | grep -q .; then
-            echo "::error::One or more IAM audit checks found issues - see the uploaded 'gcp-iam-findings' artifact"
+            echo "::error::One or more IAM audit checks found issues - see the uploaded 'gcp-security-findings' artifact"
             exit 1
           fi
           echo "All clear."
