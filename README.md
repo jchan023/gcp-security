@@ -1,7 +1,7 @@
 # gcp-iam
 
-Small scripts for auditing Google Cloud IAM and API key hygiene across every
-project in an org. Mostly loops, if we're being honest.
+Scripts for auditing Google Cloud IAM and API key hygiene across every
+project in an org. Mostly loops.
 
 ## What's here
 
