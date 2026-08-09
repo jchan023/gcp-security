@@ -7,6 +7,11 @@
 # BigQuery's dataset ACL API represents these two differently: only
 # allAuthenticatedUsers shows up under the legacy `specialGroup` field -
 # allUsers only shows up under `iamMember`. Both are checked below.
+#
+# --headless is required on every bq call: on a fresh environment (e.g. a
+# GitHub Actions runner, which starts clean every run) bq's first invocation
+# prints an interactive setup/welcome prompt to stdout, which breaks the
+# JSON parsing below.
 #===============================================================================
 set -uo pipefail
 
@@ -23,10 +28,10 @@ fi
 FOUND=false
 
 for project in $(gcloud projects list --format="value(projectId)"); do
-  DATASETS=$(bq ls --project_id="$project" --format=json 2>/dev/null | jq -r '.[].datasetReference.datasetId')
+  DATASETS=$(bq --headless ls --project_id="$project" --format=json 2>/dev/null | jq -r '.[].datasetReference.datasetId')
 
   for dataset in $DATASETS; do
-    HITS=$(bq show --format=prettyjson "${project}:${dataset}" 2>/dev/null | \
+    HITS=$(bq --headless show --format=prettyjson "${project}:${dataset}" 2>/dev/null | \
       jq -r '.access[]? |
         select(.specialGroup=="allAuthenticatedUsers" or .iamMember=="allUsers" or .iamMember=="allAuthenticatedUsers") |
         [.role, (.specialGroup // .iamMember)] | @tsv')

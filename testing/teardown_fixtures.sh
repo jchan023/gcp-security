@@ -33,7 +33,7 @@ gcloud storage rm --recursive "gs://fixture-uniform-public-${PROJECT_ID}" --quie
 gcloud storage rm --recursive "gs://fixture-finegrained-${PROJECT_ID}" --quiet 2>/dev/null || true
 
 # BigQuery dataset
-bq rm -r -f --project_id="$PROJECT_ID" "${PROJECT_ID}:fixture_public_dataset" 2>/dev/null || true
+bq --headless rm -r -f --project_id="$PROJECT_ID" "${PROJECT_ID}:fixture_public_dataset" 2>/dev/null || true
 
 # Service account (also invalidates its key)
 gcloud iam service-accounts delete "fixture-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
