@@ -16,6 +16,11 @@
 # orgs with a lot of open findings; override with MIN_SEVERITIES
 # (comma-separated, e.g. "CRITICAL,HIGH,MEDIUM").
 #
+# --location=global is required: without it, `gcloud scc findings list` hits
+# a deprecated v1 API path and errors outright ("This API is no longer
+# available. Please use API V2 as an alternative.") even on an org where SCC
+# is fully activated and the caller has correct permissions.
+#
 # Like the rest of this repo, errors (SCC not activated for an org, missing
 # permissions) are swallowed via 2>/dev/null and treated the same as "no
 # findings" rather than failing loudly - if this comes back clean, verify
@@ -44,6 +49,7 @@ fi
 for org in $ORGS; do
   HITS=$(gcloud scc findings list "$org" \
     --source=- \
+    --location=global \
     --filter="state=\"ACTIVE\" AND ($SEVERITY_FILTER)" \
     --format="value(finding.category, finding.severity, finding.resourceName)" \
     2>/dev/null)
