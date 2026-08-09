@@ -24,6 +24,8 @@ jobs:
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
       - uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: "bq" # needed for bigquery_public_audit.sh
 
       - name: Run IAM audits
         env:
@@ -38,6 +40,11 @@ jobs:
           ./privileged_roles_audit.sh    | tee findings/privileged_roles.txt
           ./audit_log_review.sh          | tee findings/audit_log_review.txt
           ./privilege_escalation_audit.sh | tee findings/privilege_escalation.txt
+          ./firewall_public_audit.sh     | tee findings/firewall_public.txt
+          ./gcs_public_objects_audit.sh  | tee findings/gcs_public_objects.txt
+          ./bigquery_public_audit.sh     | tee findings/bigquery_public.txt
+          ./org_policy_audit.sh          | tee findings/org_policy_drift.txt
+          ./scc_findings_audit.sh        | tee findings/scc_findings.txt
 
       - name: Upload findings
         if: always()

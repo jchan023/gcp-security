@@ -14,6 +14,10 @@ activity across every project in an org. Mostly loops.
 | [`public_access_audit.sh`](public_access_audit.sh) | Flags project- and **bucket-level IAM bindings** granted to `allUsers` or `allAuthenticatedUsers` — i.e. anything exposed to the public internet. |
 | [`privileged_roles_audit.sh`](privileged_roles_audit.sh) | Flags members holding primitive **`roles/owner`/`roles/editor`**, and lists any custom roles in use for manual review. |
 | [`project_access.sh`](project_access.sh) | Dumps the full IAM policy for every project to `output.txt`, plus a `project,role,member` CSV (`access_summary.csv`) for spreadsheet review, diffing over time, or grepping for a principal/role across the whole org. |
+| [`firewall_public_audit.sh`](firewall_public_audit.sh) | Flags **VPC firewall rules** open to `0.0.0.0/0`, and separately flags the ones that also expose sensitive ports (SSH, RDP, SQL, Redis, Mongo, etc.) — the ones internet-wide scanners find within minutes. |
+| [`gcs_public_objects_audit.sh`](gcs_public_objects_audit.sh) | Flags **GCS exposure below the IAM-binding level**: buckets without Public Access Prevention enforced, buckets still using fine-grained (non-uniform) access, and individual public object ACLs on those buckets. |
+| [`bigquery_public_audit.sh`](bigquery_public_audit.sh) | Flags **BigQuery datasets** shared with `allUsers`/`allAuthenticatedUsers` — dataset-level sharing that project IAM checks don't see. |
+| [`org_policy_audit.sh`](org_policy_audit.sh) | Flags projects where key **boolean org policy constraints** (SA key creation/upload, OS Login, Shielded VM, serial port access, uniform bucket access, default SA auto-grants) aren't enforced — catches project-level exceptions that silently override an org/folder-level policy. |
 
 ### Activity audits (behavior over a time window)
 
@@ -26,13 +30,25 @@ configuration sitting around.
 | [`audit_log_review.sh`](audit_log_review.sh) | Scans Admin Activity logs for high-risk actions in the last `LOOKBACK_HOURS` (default 24): IAM policy changes, new/deleted service accounts and keys, token/JWT impersonation (`GenerateAccessToken`, `SignJwt`, `SignBlob`), SSH-key/startup-script metadata edits, and **audit log sink tampering** (an attacker or insider covering their tracks). |
 | [`privilege_escalation_audit.sh`](privilege_escalation_audit.sh) | Parses `SetIamPolicy` audit log entries for grants of `roles/owner`, `roles/editor`, or any `*Admin` role, showing who granted what to whom. Flags `[SELF-GRANT]` when a principal grants itself the privileged role — the sharpest single insider-threat signal available in IAM audit logs. |
 
-All seven loop through every project in whatever org/folder the active
-`gcloud` identity can see, and are strictly read-only.
+### External findings (Security Command Center)
+
+Unlike the other scripts, this one doesn't loop projects itself — it queries
+Security Command Center directly, which already aggregates findings across
+the whole org.
+
+| Script | What it does |
+| --- | --- |
+| [`scc_findings_audit.sh`](scc_findings_audit.sh) | Pulls `ACTIVE` findings (default `CRITICAL`/`HIGH` severity, override with `MIN_SEVERITIES`) from **Security Command Center** for every org the active identity can see. SCC Standard tier is free and covers misconfiguration/vulnerability detection (Security Health Analytics, Anomaly Detection, Artifact Registry scanning) that complements, not overlaps, the audit-log-based scripts above — Standard tier has no active-threat detection (that's Premium/Enterprise only). |
+
+All twelve loop through every project (or, for `scc_findings_audit.sh`, every
+org) in whatever org/folder the active `gcloud` identity can see, and are
+strictly read-only.
 
 ## Prerequisites
 
 - [`gcloud` CLI](https://cloud.google.com/sdk/docs/install), authenticated (`gcloud auth login`)
-- [`jq`](https://jqlang.org/download/) — needed for `project_access.sh`'s CSV summary and `privilege_escalation_audit.sh`
+- [`jq`](https://jqlang.org/download/) — needed for `project_access.sh`'s CSV summary, `privilege_escalation_audit.sh`, and `bigquery_public_audit.sh`
+- `bq` CLI (bundled with the Cloud SDK — `gcloud components install bq`), for `bigquery_public_audit.sh`
 - An identity with at least (ideally a dedicated read-only auditor service account):
   - `resourcemanager.projects.list` at the org/folder level, to enumerate projects
   - `serviceusage.apiKeys.list`, for `gcloud_unreskeys.sh`
@@ -40,7 +56,12 @@ All seven loop through every project in whatever org/folder the active
   - `resourcemanager.projects.getIamPolicy` and `storage.buckets.{list,getIamPolicy}`, for `public_access_audit.sh`
   - `resourcemanager.projects.getIamPolicy`, for `privileged_roles_audit.sh` and `project_access.sh`
   - `logging.logEntries.list`, for `audit_log_review.sh` and `privilege_escalation_audit.sh` (Admin Activity logs — always-on, no extra logging config needed)
-  - The predefined `roles/viewer` + `roles/iam.securityReviewer` + `roles/logging.viewer` roles cover all of the above.
+  - `compute.firewalls.list`, for `firewall_public_audit.sh`
+  - `storage.buckets.get` and `storage.objects.{list,get}`, for `gcs_public_objects_audit.sh` (object ACL visibility needs legacy bucket/object reader access, not just the Storage Object Viewer role)
+  - `bigquery.datasets.get`, for `bigquery_public_audit.sh`
+  - `orgpolicy.policy.get`, for `org_policy_audit.sh`
+  - `resourcemanager.organizations.get` and `securitycenter.findings.list`, for `scc_findings_audit.sh` — also requires [Security Command Center](https://console.cloud.google.com/security/command-center) to actually be activated on the org (Standard tier is free)
+  - The predefined `roles/viewer` + `roles/iam.securityReviewer` + `roles/logging.viewer` roles cover the original seven scripts; add `roles/storage.legacyBucketReader` (or `objectViewer` + ACL read access), `roles/bigquery.metadataViewer`, `roles/orgpolicy.policyViewer`, and `roles/securitycenter.findingsViewer` for the five new ones.
 - Bash
 
 ## Usage
@@ -51,9 +72,15 @@ MAX_KEY_AGE_DAYS=60 ./sa_key_age_audit.sh           # stale service account keys
 ./public_access_audit.sh                            # public IAM bindings (projects + buckets)
 ./privileged_roles_audit.sh                         # owner/editor + custom role bindings
 ./project_access.sh                                 # full IAM dump -> output.txt + access_summary.csv
+./firewall_public_audit.sh                          # firewall rules open to 0.0.0.0/0
+./gcs_public_objects_audit.sh                       # PAP/uniform-access gaps + public object ACLs
+./bigquery_public_audit.sh                          # public BigQuery dataset access
+./org_policy_audit.sh                               # security-relevant org policy drift
 
 LOOKBACK_HOURS=72 ./audit_log_review.sh             # high-risk admin actions (default 24h)
 LOOKBACK_HOURS=72 ./privilege_escalation_audit.sh   # owner/editor/Admin role grants, flags self-grants
+
+MIN_SEVERITIES=CRITICAL,HIGH,MEDIUM ./scc_findings_audit.sh  # SCC findings (default CRITICAL,HIGH)
 ```
 
 All scripts operate on whatever projects `gcloud projects list` returns for
@@ -63,7 +90,7 @@ before running against anything sensitive.
 ## Running on a schedule (CI)
 
 [`.github/workflows/gcp-security-audit.yml`](.github/workflows/gcp-security-audit.yml)
-runs all six flag-raising audits daily via GitHub Actions and fails the run
+runs all eleven flag-raising audits daily via GitHub Actions and fails the run
 (uploading results as a build artifact) if anything is found, so drift and
 suspicious activity show up without anyone having to remember to run these
 by hand.
