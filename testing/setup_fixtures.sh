@@ -38,9 +38,24 @@ gcloud iam service-accounts create fixture-sa \
   --display-name="fixture-sa (audit test fixture)" \
   --project="$PROJECT_ID" 2>/dev/null || true
 
-gcloud iam service-accounts keys create /tmp/fixture-sa-key.json \
-  --iam-account="fixture-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
-  --project="$PROJECT_ID"
+# A freshly-created SA isn't always immediately visible to the IAM key API -
+# eventual consistency can make the very next call 404 even though the SA
+# exists. Retry briefly instead of failing on that race.
+SA_EMAIL="fixture-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+for attempt in 1 2 3 4 5; do
+  if gcloud iam service-accounts keys create /tmp/fixture-sa-key.json \
+    --iam-account="$SA_EMAIL" --project="$PROJECT_ID" 2>/tmp/fixture-sa-key-err.txt; then
+    break
+  fi
+  if [ "$attempt" -eq 5 ]; then
+    cat /tmp/fixture-sa-key-err.txt >&2
+    rm -f /tmp/fixture-sa-key-err.txt
+    exit 1
+  fi
+  echo "SA not yet propagated, retrying ($attempt/5) ..." >&2
+  sleep 3
+done
+rm -f /tmp/fixture-sa-key-err.txt
 
 # --- firewall_public_audit.sh: SSH/RDP open to the world --------------------
 gcloud compute firewall-rules create fixture-open-mgmt-ports \
@@ -91,7 +106,7 @@ rm -f "$BQ_PATCH"
 
 # --- privileged_roles_audit.sh: primitive owner grant -----------------------
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-  --member="serviceAccount:fixture-sa@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --member="serviceAccount:${SA_EMAIL}" \
   --role=roles/owner \
   --condition=None >/dev/null
 

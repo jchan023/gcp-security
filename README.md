@@ -1,5 +1,8 @@
 # gcp-security
 
+[![GCP Security Audit](https://github.com/jchan023/gcp-security/actions/workflows/gcp-security-audit.yml/badge.svg)](https://github.com/jchan023/gcp-security/actions/workflows/gcp-security-audit.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Scripts for auditing Google Cloud IAM, API key hygiene, and suspicious
 activity across every project in an org. Mostly loops.
 
@@ -118,3 +121,7 @@ or you'll have gaps between runs.
   default — for real insider-threat investigations, also export logs to a
   [log sink](https://cloud.google.com/logging/docs/export) (BigQuery or GCS)
   for longer retention and richer querying.
+
+## License
+
+[MIT](LICENSE)
