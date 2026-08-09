@@ -3,6 +3,11 @@
 # Flag project-level and GCS bucket-level IAM bindings granted to allUsers or
 # allAuthenticatedUsers ("public on the internet") across every project in
 # the org.
+#
+# Note: `gcloud storage buckets get-iam-policy` does not support --filter
+# (unlike `gcloud projects get-iam-policy`, which does) - it silently errors
+# out if you pass one, which 2>/dev/null then swallows. So the bucket check
+# flattens the policy and greps for the public members in bash instead.
 #===============================================================================
 set -uo pipefail
 
@@ -27,8 +32,8 @@ for project in $(gcloud projects list --format="value(projectId)"); do
   for bucket in $BUCKETS; do
     BUCKET_HITS=$(gcloud storage buckets get-iam-policy "gs://$bucket" \
       --flatten="bindings[].members" \
-      --filter="bindings.members:allUsers OR bindings.members:allAuthenticatedUsers" \
-      --format="value(bindings.role, bindings.members)" 2>/dev/null)
+      --format="value(bindings.role, bindings.members)" 2>/dev/null | \
+      grep -E "allUsers|allAuthenticatedUsers")
 
     if [ -n "$BUCKET_HITS" ]; then
       echo "$BUCKET_HITS" | sed "s/^/$project [bucket gs:\/\/$bucket]: /"

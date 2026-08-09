@@ -5,6 +5,11 @@
 # common management/database ports (SSH, RDP, SQL, Redis, Mongo, etc.) are
 # flagged as [SENSITIVE PORT], since those get hit by internet-wide scanners
 # within minutes of exposure.
+#
+# Note: filtering server-side (--filter="sourceRanges:0.0.0.0/0") fails
+# outright against the Compute API ("Invalid list filter expression") - the
+# CIDR's "/" breaks its filter parser. Rules are listed unfiltered instead
+# and matched against 0.0.0.0/0 in bash.
 #===============================================================================
 set -uo pipefail
 
@@ -15,12 +20,15 @@ FOUND=false
 
 for project in $(gcloud projects list --format="value(projectId)"); do
   RULES=$(gcloud compute firewall-rules list --project="$project" \
-    --filter="direction=INGRESS AND disabled=false AND sourceRanges:0.0.0.0/0" \
-    --format="value(name, allowed[].map().firewall_rule().list())" 2>/dev/null)
+    --format="value(name, direction, disabled, sourceRanges.list(), allowed[].map().firewall_rule().list())" 2>/dev/null)
 
   if [ -n "$RULES" ]; then
-    while IFS=$'\t' read -r name allowed; do
+    while IFS=$'\t' read -r name direction disabled ranges allowed; do
       [ -z "$name" ] && continue
+      [ "$direction" = "INGRESS" ] || continue
+      [ "$disabled" = "False" ] || continue
+      echo "$ranges" | grep -q "0.0.0.0/0" || continue
+
       TAG=""
       if echo "$allowed" | grep -qE "$SENSITIVE_PORTS_REGEX"; then
         TAG="  [SENSITIVE PORT]"
