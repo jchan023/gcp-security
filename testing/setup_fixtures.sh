@@ -84,7 +84,7 @@ gcloud storage objects update "gs://fixture-finegrained-${PROJECT_ID}/fixture-ob
 # not reliably read.
 bq --headless mk --dataset --project_id="$PROJECT_ID" "${PROJECT_ID}:fixture_public_dataset"
 BQ_PATCH="$(mktemp)"
-bq --headless show --format=prettyjson "${PROJECT_ID}:fixture_public_dataset" | \
+bq --headless show --format=prettyjson "${PROJECT_ID}:fixture_public_dataset" | grep -v '^WARNING:' | \
   jq '{access: (.access + [{"role":"READER","iamMember":"allUsers"}])}' > "$BQ_PATCH"
 bq --headless update --project_id="$PROJECT_ID" --source="$BQ_PATCH" "${PROJECT_ID}:fixture_public_dataset"
 rm -f "$BQ_PATCH"

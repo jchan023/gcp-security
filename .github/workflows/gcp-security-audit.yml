@@ -24,13 +24,6 @@ jobs:
         with:
           install_components: "bq" # needed for bigquery_public_audit.sh
 
-      - name: TEMP debug bq output
-        run: |
-          bq --headless ls --project_id=REDACTED --format=json | cat -A | head -5
-          echo "---exit=$?---"
-          bq --headless ls --project_id=REDACTED --format=json | cat -A | head -5
-          echo "---exit=$?---"
-
       - name: Run IAM audits
         env:
           LOOKBACK_HOURS: 24 # matches the daily schedule above
