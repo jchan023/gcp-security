@@ -11,7 +11,15 @@
 set -uo pipefail
 
 LOOKBACK_HOURS="${LOOKBACK_HOURS:-24}"
-SINCE=$(date -u -d "-${LOOKBACK_HOURS} hours" +%Y-%m-%dT%H:%M:%SZ)
+
+# GNU date (-d) vs BSD/macOS date (-v) - BSD date doesn't support -d at all
+# and fails silently under 2>/dev/null, which would otherwise make this
+# script find nothing regardless of what's in the logs.
+if date --version >/dev/null 2>&1; then
+  SINCE=$(date -u -d "-${LOOKBACK_HOURS} hours" +%Y-%m-%dT%H:%M:%SZ)
+else
+  SINCE=$(date -u -v-"${LOOKBACK_HOURS}"H +%Y-%m-%dT%H:%M:%SZ)
+fi
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "jq is required (https://jqlang.org/download/)" >&2
