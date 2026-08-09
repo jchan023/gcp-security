@@ -57,11 +57,11 @@ strictly read-only.
   - `resourcemanager.projects.getIamPolicy`, for `privileged_roles_audit.sh` and `project_access.sh`
   - `logging.logEntries.list`, for `audit_log_review.sh` and `privilege_escalation_audit.sh` (Admin Activity logs — always-on, no extra logging config needed)
   - `compute.firewalls.list`, for `firewall_public_audit.sh`
-  - `storage.buckets.get` and `storage.objects.{list,get}`, for `gcs_public_objects_audit.sh` (object ACL visibility needs legacy bucket/object reader access, not just the Storage Object Viewer role)
+  - `storage.buckets.get` and `storage.objects.{list,get}`, for `gcs_public_objects_audit.sh` (object ACL visibility needs legacy bucket/object reader access, not just the Storage Object Viewer role - and `roles/storage.legacyBucketReader`/`legacyObjectReader` can only be bound at the project or bucket level, not the org, so the object-ACL check in this script is a blind spot for an org-wide auditor SA unless granted per-project)
   - `bigquery.datasets.get`, for `bigquery_public_audit.sh`
   - `orgpolicy.policy.get`, for `org_policy_audit.sh`
   - `resourcemanager.organizations.get` and `securitycenter.findings.list`, for `scc_findings_audit.sh` — also requires [Security Command Center](https://console.cloud.google.com/security/command-center) to actually be activated on the org (Standard tier is free)
-  - The predefined `roles/viewer` + `roles/iam.securityReviewer` + `roles/logging.viewer` roles cover the original seven scripts; add `roles/storage.legacyBucketReader` (or `objectViewer` + ACL read access), `roles/bigquery.metadataViewer`, `roles/orgpolicy.policyViewer`, and `roles/securitycenter.findingsViewer` for the five new ones.
+  - The predefined `roles/viewer` + `roles/iam.securityReviewer` + `roles/logging.viewer` roles cover the original seven scripts; add `roles/storage.objectViewer` (org-grantable, but no ACL visibility - see note above), `roles/bigquery.metadataViewer`, `roles/orgpolicy.policyViewer`, and `roles/securitycenter.findingsViewer` for the five new ones.
 - Bash
 
 ## Usage

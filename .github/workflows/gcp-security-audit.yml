@@ -1,11 +1,8 @@
 name: GCP Security Audit
 
 on:
-  # Schedule is disabled until GCP credentials (GCP_WORKLOAD_IDENTITY_PROVIDER /
-  # GCP_SERVICE_ACCOUNT secrets) are configured - re-enable the `schedule`
-  # trigger below once this is hooked up to a real GCP org.
-  # schedule:
-  #   - cron: "0 6 * * *" # 06:00 UTC daily
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
   workflow_dispatch: {}
 
 jobs:
