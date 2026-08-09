@@ -1,4 +1,4 @@
-# gcp-security-audit
+# gcp-security
 
 Scripts for auditing Google Cloud IAM, API key hygiene, and suspicious
 activity across every project in an org. Mostly loops.
