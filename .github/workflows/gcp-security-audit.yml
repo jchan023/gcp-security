@@ -2,7 +2,7 @@ name: GCP Security Audit
 
 on:
   schedule:
-    - cron: "0 6 * * *" # 06:00 UTC daily
+    - cron: "0 14 * * *" # 14:00 UTC = 9:00 AM CT (CDT, UTC-5)
   workflow_dispatch: {}
 
 jobs:
