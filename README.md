@@ -106,6 +106,21 @@ key in GitHub) — set these repo secrets to enable it:
 - `GCP_SERVICE_ACCOUNT` — email of a read-only auditor service account (see
   permissions above) that the WIF pool is allowed to impersonate
 
+Every run also emails a findings summary (subject line includes the flagged
+check count, body lists every finding) so a run and its results are visible
+without opening GitHub — set these two additional repo secrets:
+
+- `MAIL_USERNAME` — a Gmail address to send from
+- `MAIL_PASSWORD` — a Gmail [App
+  Password](https://myaccount.google.com/apppasswords) for that address, **not**
+  the account password (Google requires 2-Step Verification to be enabled to
+  generate one)
+
+The recipient address is hardcoded to `jchan023@gmail.com` in the workflow —
+change it there if needed. If these two secrets aren't set, the email step
+fails but doesn't block the rest of the run (findings still show up in the
+Actions log and the uploaded artifact either way).
+
 Trigger it manually any time from the Actions tab, or wait for the daily run.
 The audit-log scripts default to a 24h lookback to match the daily cadence —
 if you widen the schedule, widen `LOOKBACK_HOURS` in the workflow to match,
