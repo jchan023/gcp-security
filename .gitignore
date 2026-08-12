@@ -1,3 +1,4 @@
 output.txt
 access_summary.csv
 findings/
+.findings-history/
