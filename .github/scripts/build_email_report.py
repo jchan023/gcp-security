@@ -16,6 +16,7 @@ as All Clear for that check.
 """
 import json
 import os
+import re
 from datetime import date
 
 FINDINGS_DIR = "findings"
@@ -23,6 +24,38 @@ HISTORY_PATH = ".findings-history/history.json"
 DRIFT_FILE = "org_policy_drift.txt"
 
 TODAY = date.today().isoformat()
+
+CONSTRAINT_RE = re.compile(r"(constraints/[\w.]+)")
+
+# Short human-readable context for each constraint org_policy_audit.sh
+# checks, so a drift line isn't just a bare constraint ID in the email.
+# Keep in sync with the CONSTRAINTS list in org_policy_audit.sh.
+CONSTRAINT_DESCRIPTIONS = {
+    "constraints/iam.disableServiceAccountKeyCreation":
+        "Blocks creating new user-managed SA keys - stale/leaked keys are a common credential-abuse vector.",
+    "constraints/iam.disableServiceAccountKeyUpload":
+        "Blocks uploading externally-created public keys for service accounts.",
+    "constraints/iam.automaticIamGrantsForDefaultServiceAccounts":
+        "Stops default service accounts from auto-getting broad roles (e.g. Editor) on project creation.",
+    "constraints/compute.requireOsLogin":
+        "Requires OS Login for SSH instead of metadata-based SSH keys, tying VM access to IAM.",
+    "constraints/compute.requireShieldedVm":
+        "Requires Shielded VM (secure boot, vTPM, integrity monitoring) on new Compute instances.",
+    "constraints/compute.disableSerialPortAccess":
+        "Blocks serial console access to VMs - an alternate, less-audited path into a running instance.",
+    "constraints/storage.uniformBucketLevelAccess":
+        "Requires IAM-only bucket access, disabling legacy per-object ACLs that can grant access invisibly to IAM checks.",
+}
+
+
+def describe_drift_line(line):
+    match = CONSTRAINT_RE.search(line)
+    if not match:
+        return line
+    description = CONSTRAINT_DESCRIPTIONS.get(match.group(1))
+    if not description:
+        return line
+    return f"{line}\n    {description}"
 
 
 def load_history():
@@ -65,7 +98,7 @@ def main():
             continue
 
         if fname == DRIFT_FILE:
-            drift_items.extend(f"{check}: {line}" for line in lines)
+            drift_items.extend(describe_drift_line(f"{check}: {line}") for line in lines)
             continue
 
         for line in lines:
