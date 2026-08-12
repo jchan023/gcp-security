@@ -106,9 +106,26 @@ key in GitHub) — set these repo secrets to enable it:
 - `GCP_SERVICE_ACCOUNT` — email of a read-only auditor service account (see
   permissions above) that the WIF pool is allowed to impersonate
 
-Every run also emails a findings summary (subject line includes the flagged
-check count, body lists every finding) so a run and its results are visible
-without opening GitHub — set these two additional repo secrets:
+Every run also emails a categorized findings summary so a run and its
+results are visible without opening GitHub. The body is split into four
+sections:
+
+- **New Findings** — findings not seen in any prior run
+- **Existing Findings** — findings seen before, with the date first observed
+- **Drift** — [`org_policy_audit.sh`](org_policy_audit.sh)'s output
+  specifically (policy state, shown as-is rather than new/existing-tracked)
+- **All Clear** — checks that came back clean
+
+New-vs-existing tracking needs a history file that survives across runs.
+That can't be committed to the repo (findings history — project IDs, IAM
+emails, misconfiguration details — would then be public, since this repo
+is), so it's kept in a [GitHub Actions
+cache](https://docs.github.com/actions/writing-workflows/choosing-what-your-workflow-does/caching-dependencies-to-speed-up-workflows)
+instead ([`.github/scripts/build_email_report.py`](.github/scripts/build_email_report.py)
+builds it). A finding that disappears and later comes back is treated as
+new again, not resurrected with its old first-seen date.
+
+Set these two additional repo secrets to enable the email step:
 
 - `MAIL_USERNAME` — a Gmail address to send from
 - `MAIL_PASSWORD` — a Gmail [App

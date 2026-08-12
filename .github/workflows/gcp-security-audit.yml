@@ -14,6 +14,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Restores the finding-history file from the previous run so the email
+      # can tell new findings from ones already open (with a first-seen
+      # date). Key always misses (run_id is unique) so this run's updated
+      # history always gets saved at the end; restore-keys falls back to the
+      # most recent prior save. Can't commit this to the repo instead - it's
+      # public, and the history would leak project IDs/emails/findings.
+      - uses: actions/cache@v4
+        with:
+          path: .findings-history
+          key: findings-history-${{ github.run_id }}
+          restore-keys: |
+            findings-history-
+
       - id: auth
         uses: google-github-actions/auth@v2
         with:
@@ -55,18 +68,13 @@ jobs:
         if: always()
         id: summary
         run: |
-          COUNT=$(grep -rL "^No " findings/ | wc -l | tr -d ' ')
-          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          REPORT=$(python3 .github/scripts/build_email_report.py)
           {
             echo "body<<EMAIL_BODY_EOF"
-            echo "GCP Security Audit — $COUNT check(s) with findings — $(date -u +%Y-%m-%d)"
+            echo "GCP Security Audit — $(date -u +%Y-%m-%d)"
             echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             echo
-            for f in findings/*.txt; do
-              echo "== $(basename "$f" .txt) =="
-              cat "$f"
-              echo
-            done
+            echo "$REPORT"
             echo "EMAIL_BODY_EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -85,7 +93,7 @@ jobs:
           password: ${{ secrets.MAIL_PASSWORD }}
           from: GCP Security Audit <${{ secrets.MAIL_USERNAME }}>
           to: jchan023@gmail.com
-          subject: "GCP Security Audit: ${{ steps.summary.outputs.count }} check(s) flagged — run #${{ github.run_number }}"
+          subject: "GCP Security Audit: ${{ steps.summary.outputs.new_count }} new, ${{ steps.summary.outputs.existing_count }} existing, ${{ steps.summary.outputs.drift_count }} drift — run #${{ github.run_number }}"
           body: ${{ steps.summary.outputs.body }}
 
       - name: Fail if any audit flagged something
