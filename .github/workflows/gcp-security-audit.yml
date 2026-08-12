@@ -16,21 +16,21 @@ jobs:
 
       # Restores the finding-history file from the previous run so the email
       # can tell new findings from ones already open (with a first-seen
-      # date). Key always misses (run_id is unique) so this run's updated
-      # history always gets saved at the end; restore-keys falls back to the
-      # most recent prior save. Can't commit this to the repo instead - it's
-      # public, and the history would leak project IDs/emails/findings.
-      - uses: actions/cache@v4
+      # date). Key always misses (run_id is unique) so restore-keys falls
+      # back to the most recent prior save; this run's updated history is
+      # saved explicitly at the very end of the job (see the last step) -
+      # actions/cache's own combined action gates its automatic save on
+      # success(), which never fires here since this workflow is designed to
+      # fail whenever findings exist. save-always: true does NOT fix that -
+      # it's deprecated and confirmed (via a live run) not to actually save.
+      # Can't commit this file to the repo instead - it's public, and the
+      # history would leak project IDs/emails/findings.
+      - uses: actions/cache/restore@v4
         with:
           path: .findings-history
           key: findings-history-${{ github.run_id }}
           restore-keys: |
             findings-history-
-          # actions/cache's automatic save is gated by success() internally,
-          # so it silently never saves on this workflow - it's designed to
-          # fail whenever findings exist, which is nearly every run. Without
-          # this, history tracking would be broken from day one.
-          save-always: true
 
       - id: auth
         uses: google-github-actions/auth@v2
@@ -108,3 +108,13 @@ jobs:
             exit 1
           fi
           echo "All clear."
+
+      # Explicit save, not the combined action's automatic post-run save -
+      # that's gated by success() and never fires given the step above. This
+      # standalone step with if: always() saves unconditionally regardless
+      # of job outcome. Must be the LAST step in the job.
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .findings-history
+          key: findings-history-${{ github.run_id }}
