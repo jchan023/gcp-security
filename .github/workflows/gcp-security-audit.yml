@@ -18,11 +18,13 @@ jobs:
       # can tell new findings from ones already open (with a first-seen
       # date). Key always misses (run_id is unique) so restore-keys falls
       # back to the most recent prior save; this run's updated history is
-      # saved explicitly at the very end of the job (see the last step) -
-      # actions/cache's own combined action gates its automatic save on
-      # success(), which never fires here since this workflow is designed to
-      # fail whenever findings exist. save-always: true does NOT fix that -
-      # it's deprecated and confirmed (via a live run) not to actually save.
+      # saved explicitly at the very end of the job (see the last step),
+      # using the split restore/save actions rather than the combined
+      # action's automatic post-run save - that save is gated by success(),
+      # and a failed run (e.g. the audits erroring, or the email failing to
+      # send) should still persist whatever history was gathered.
+      # save-always: true looked like an alternative fix but is deprecated
+      # and confirmed (via a live run) not to actually save the cache.
       # Can't commit this file to the repo instead - it's public, and the
       # history would leak project IDs/emails/findings.
       - uses: actions/cache/restore@v4
@@ -46,7 +48,11 @@ jobs:
         env:
           LOOKBACK_HOURS: 24 # matches the daily schedule above
         run: |
-          set -uo pipefail
+          # -e: a genuine script error (not "found something" - the audit
+          # scripts always exit 0 for that, findings are just text output)
+          # should fail this step, and therefore the job. Findings alone no
+          # longer fail the run - see the summary step below.
+          set -euo pipefail
           chmod +x ./*.sh
           mkdir -p findings
           ./gcloud_unreskeys.sh          | tee findings/unrestricted_keys.txt
@@ -86,10 +92,12 @@ jobs:
       # Sends every run regardless of pass/fail, so a clean day still confirms
       # the audit actually ran - not just silence when there's nothing to flag.
       # Requires MAIL_USERNAME/MAIL_PASSWORD repo secrets (a Gmail address +
-      # app password, not the account password - see README).
+      # app password, not the account password - see README). This step is
+      # NOT continue-on-error: findings alone don't fail the run anymore
+      # (see below), but a failed send does - that's the point of emailing
+      # findings at all, so it needs to be a real failure signal.
       - name: Email findings
         if: always()
-        continue-on-error: true # a missing/misconfigured mail secret shouldn't block the audit's own pass/fail signal below
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
@@ -101,13 +109,20 @@ jobs:
           subject: "GCP Security Audit: ${{ steps.summary.outputs.new_count }} new, ${{ steps.summary.outputs.existing_count }} existing, ${{ steps.summary.outputs.drift_count }} drift — run #${{ github.run_number }}"
           body: ${{ steps.summary.outputs.body }}
 
-      - name: Fail if any audit flagged something
+      # Informational only - does not fail the run. Findings are expected
+      # (there are permanent baseline ones, e.g. project ownership) and are
+      # already reported via email above; this job's pass/fail reflects
+      # whether the audits and the email actually ran, not whether anything
+      # was found.
+      - name: Findings summary
+        if: always()
         run: |
-          if grep -rL "^No " findings/ | grep -q .; then
-            echo "::error::One or more IAM audit checks found issues - see the uploaded 'gcp-security-findings' artifact"
-            exit 1
+          COUNT=$(grep -rL "^No " findings/ | wc -l | tr -d ' ')
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::notice::$COUNT check(s) have findings - see the email or the uploaded 'gcp-security-findings' artifact"
+          else
+            echo "All clear."
           fi
-          echo "All clear."
 
       # Explicit save, not the combined action's automatic post-run save -
       # that's gated by success() and never fires given the step above. This

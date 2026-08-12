@@ -93,10 +93,16 @@ before running against anything sensitive.
 ## Running on a schedule (CI)
 
 [`.github/workflows/gcp-security-audit.yml`](.github/workflows/gcp-security-audit.yml)
-runs all eleven flag-raising audits daily via GitHub Actions and fails the run
-(uploading results as a build artifact) if anything is found, so drift and
-suspicious activity show up without anyone having to remember to run these
-by hand.
+runs all eleven flag-raising audits daily via GitHub Actions, uploads results
+as a build artifact, and emails a categorized findings summary every run (see
+below) — so drift and suspicious activity show up without anyone having to
+remember to run these by hand.
+
+The run's pass/fail status reflects whether it actually *ran* — not whether
+anything was found. Findings are expected (there are permanent baseline
+ones, like your own project ownership), and are already surfaced via email;
+a green run means the audits executed and the email sent, a red run means
+one of those two things failed to happen.
 
 It authenticates via [Workload Identity
 Federation](https://github.com/google-github-actions/auth#setup) (no long-lived
