@@ -26,6 +26,11 @@ jobs:
           key: findings-history-${{ github.run_id }}
           restore-keys: |
             findings-history-
+          # actions/cache's automatic save is gated by success() internally,
+          # so it silently never saves on this workflow - it's designed to
+          # fail whenever findings exist, which is nearly every run. Without
+          # this, history tracking would be broken from day one.
+          save-always: true
 
       - id: auth
         uses: google-github-actions/auth@v2
