@@ -93,7 +93,7 @@ before running against anything sensitive.
 ## Running on a schedule (CI)
 
 [`.github/workflows/gcp-security-audit.yml`](.github/workflows/gcp-security-audit.yml)
-runs all eleven flag-raising audits daily via GitHub Actions, uploads results
+runs all eleven flag-raising audits weekly (Thursdays) via GitHub Actions, uploads results
 as a build artifact, and emails a categorized findings summary every run (see
 below) — so drift and suspicious activity show up without anyone having to
 remember to run these by hand.
@@ -144,10 +144,11 @@ change it there if needed. If these two secrets aren't set, the email step
 fails but doesn't block the rest of the run (findings still show up in the
 Actions log and the uploaded artifact either way).
 
-Trigger it manually any time from the Actions tab, or wait for the daily run.
-The audit-log scripts default to a 24h lookback to match the daily cadence —
-if you widen the schedule, widen `LOOKBACK_HOURS` in the workflow to match,
-or you'll have gaps between runs.
+Trigger it manually any time from the Actions tab, or wait for the weekly run.
+The audit-log scripts default to a 24h lookback when run by hand, but the
+workflow overrides `LOOKBACK_HOURS` to 168 (7 days) to match the weekly
+cadence — if you change the schedule, change `LOOKBACK_HOURS` in the
+workflow to match, or you'll have gaps between runs.
 
 ## Notes
 

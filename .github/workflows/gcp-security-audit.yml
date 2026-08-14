@@ -2,7 +2,7 @@ name: GCP Security Audit
 
 on:
   schedule:
-    - cron: "0 14 * * *" # 14:00 UTC = 9:00 AM CT (CDT, UTC-5)
+    - cron: "0 14 * * 4" # Thursdays, 14:00 UTC = 9:00 AM CT (CDT, UTC-5)
   workflow_dispatch: {}
 
 jobs:
@@ -46,7 +46,7 @@ jobs:
 
       - name: Run IAM audits
         env:
-          LOOKBACK_HOURS: 24 # matches the daily schedule above
+          LOOKBACK_HOURS: 168 # 7 days, matches the weekly schedule above
         run: |
           # -e: a genuine script error (not "found something" - the audit
           # scripts always exit 0 for that, findings are just text output)
