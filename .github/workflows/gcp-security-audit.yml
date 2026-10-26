@@ -65,6 +65,16 @@ jobs:
           ./firewall_egress_audit.sh     | tee findings/firewall_egress.txt
           ./firewall_policies_audit.sh   | tee findings/firewall_policies.txt
           ./org_wide_iam_audit.sh        | tee findings/org_wide_iam.txt
+          ./org_policy_source_audit.sh  | tee findings/org_policy_source.txt
+          ./logging_config_audit.sh     | tee findings/logging_config.txt
+          ./billing_audit.sh            | tee findings/billing.txt
+          ./external_identities_audit.sh| tee findings/external_identities.txt
+          ./service_account_audit.sh    | tee findings/service_accounts.txt
+          ./org_structure_audit.sh      | tee findings/org_structure.txt
+          ./ids_ips_audit.sh            | tee findings/ids_ips.txt
+          ./network_exposure_audit.sh   | tee findings/network_exposure.txt
+          ./enabled_apis_audit.sh       | tee findings/enabled_apis.txt
+          ./asset_inventory_audit.sh    | tee findings/asset_inventory.txt
           ./gcs_public_objects_audit.sh  | tee findings/gcs_public_objects.txt
           ./bigquery_public_audit.sh     | tee findings/bigquery_public.txt
           ./org_policy_audit.sh          | tee findings/org_policy_drift.txt

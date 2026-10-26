@@ -10,7 +10,7 @@
 #
 # skip_check stays quiet when a PROJECT-scoped failure just means the API is
 # disabled there (nothing can exist in it to audit). Org-scoped checks
-# (scope "org <id>") never get that pass: a disabled Cloud Asset/SCC API at
+# (scope "org <id>" or "billing...") never get that pass: a disabled Cloud Asset/SCC API at
 # org level means the check has no coverage at all. Any other failure prints a
 # "<project>: SKIPPED (<label>): <reason>" line and sets FOUND=true, so the
 # check shows up as a finding instead of a false all-clear.
@@ -22,7 +22,7 @@ trap 'rm -f "$ERR"' EXIT
 skip_check() {
   local scope="$1" label="$2"
   case "$scope" in
-    org\ *) ;;
+    org\ *|billing*) ;;
     *)
       if grep -qiE 'SERVICE_DISABLED|has not been used in project|is not enabled|API \[.*\] not enabled' "$ERR"; then
         return 0
@@ -57,3 +57,25 @@ exposes_sensitive() {
 # Ranges come from a comma-separated list() so match whole comma-delimited items.
 OPEN_CIDR_REGEX='(^|[, ])(0\.0\.0\.0/0|::/0)([, ]|$)'
 is_open_cidr() { echo "$1" | grep -qE "$OPEN_CIDR_REGEX"; }
+
+# Print every folder ID (as "folders/<id>") under an org, recursively.
+all_folders() {
+  local org="$1" queue next f
+  queue=$(gcloud resource-manager folders list --organization="$org" --format="value(name)" 2>"$ERR") \
+    || { skip_check "org $org" "list folders"; return; }
+  while [ -n "$queue" ]; do
+    next=""
+    for f in $queue; do
+      echo "$f"
+      next="$next $(gcloud resource-manager folders list --folder="${f#folders/}" --format="value(name)" 2>/dev/null)"
+    done
+    queue=$(echo "$next" | xargs)
+  done
+}
+
+need_jq() {
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "jq is required (https://jqlang.org/download/)" >&2
+    exit 1
+  fi
+}
