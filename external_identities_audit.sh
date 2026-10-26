@@ -20,8 +20,9 @@ source "$(dirname "$0")/lib_audit.sh"
 need_jq
 
 FOUND=false
-PROJECT_IDS=$(gcloud projects list --format="value(projectId)" 2>"$ERR") || { skip_check "org" "list projects"; PROJECT_IDS=""; }
-PROJECT_NUMBERS=$(gcloud projects list --format="value(projectNumber)" 2>/dev/null)
+# Membership checks use the WHOLE org (excluded projects still count as inside).
+PROJECT_IDS="$ALL_PROJECT_IDS"
+PROJECT_NUMBERS="$ALL_PROJECT_NUMBERS"
 
 is_internal_sa() { # service account email
   local email="$1" proj
@@ -74,7 +75,7 @@ for org in $ORGS; do
     check_policy "$folder" "$POLICY" "$DOMAINS" >> "$ERR.hits"
   done
 
-  for project in $PROJECT_IDS; do
+  for project in $AUDIT_PROJECTS; do
     POLICY=$(gcloud projects get-iam-policy "$project" --format=json 2>"$ERR") \
       || { skip_check "$project" "project IAM policy"; continue; }
     check_policy "$project" "$POLICY" "$DOMAINS" >> "$ERR.hits"

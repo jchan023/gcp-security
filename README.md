@@ -164,3 +164,23 @@ workflow to match, or you'll have gaps between runs.
 ## License
 
 [MIT](LICENSE)
+
+## Scoping and keeping identifiers out of the repo
+
+Nothing in this repository names a project, folder or org. Scope is set at
+run time:
+
+- **Skip projects**: repo *variables* `EXCLUDE_NAME_REGEX` (default
+  `^Untitled project$`, the auto-created Apps Script projects; `none` turns it
+  off) and `EXCLUDE_ID_REGEX` (e.g. `^sys-[0-9]+$`). Excluded projects are also
+  dropped from the org-wide checks (asset inventory, org-wide IAM, SCC).
+- **Compliance scope**: label projects `scope_pci=true`, `scope_iso27001=true`,
+  `scope_soc2=true` (any `scope_<framework>`), and/or set the `AUDIT_SCOPE_MAP`
+  *secret* (`pci=proj-a proj-b` per line). Findings in the email are tagged
+  `[PCI]`, `[ISO27001]`, ... with a per-framework count. Set the
+  `AUDIT_ONLY_SCOPED=true` variable to audit only labelled projects.
+- **Public repos**: Actions logs and artifacts are world-readable, so the
+  workflow writes findings to files only, masks project/org IDs, sends the
+  email body from a file (the mail action echoes its inputs), and skips the
+  artifact upload and log echo unless the repo is private. A private repo is
+  still the safer home for this workflow.

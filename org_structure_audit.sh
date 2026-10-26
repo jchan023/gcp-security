@@ -46,8 +46,7 @@ for org in $ORGS; do
 
   HAS_FOLDERS=$(all_folders "$org" | head -1)
 
-  PROJECTS=$(gcloud projects list --format="value(projectId,createTime,lifecycleState,parent.type)" 2>"$ERR") \
-    || { skip_check "org $org" "list projects"; PROJECTS=""; }
+  PROJECTS=$(echo "$ALL_PROJECTS_JSON" | jq -r '.[] | [.projectId, .createTime, .lifecycleState, (.parent.type // "")] | @tsv' | drop_excluded)
   while IFS=$'\t' read -r pid created state ptype; do
     [ -z "$pid" ] && continue
     ts="${created%%.*}"; ts="${ts%Z}Z"

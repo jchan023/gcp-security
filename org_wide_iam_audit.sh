@@ -37,6 +37,11 @@ for org in $ORGS; do
   POLICIES=$(gcloud asset search-all-iam-policies --scope="organizations/$org" \
     --format=json 2>"$ERR") || { skip_check "org $org" "Cloud Asset IAM search"; continue; }
   [ -z "$POLICIES" ] && POLICIES="[]"
+  # Org-wide search covers excluded projects too; drop their resources.
+  if [ -s "$EXCLUDED_FILE" ]; then
+    POLICIES=$(echo "$POLICIES" | jq -c --rawfile ex "$EXCLUDED_FILE" '($ex | split("\n") | map(select(. != ""))) as $x
+      | [.[] | . as $p | select(([$x[] | . as $e | ($p.resource | contains($e)) or ($p.project // "" | contains($e))] | any) | not)]')
+  fi
 
   PUBLIC=$(echo "$POLICIES" | jq -r '
     .[] | select(.assetType != "cloudresourcemanager.googleapis.com/Project"

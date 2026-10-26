@@ -26,8 +26,9 @@ for org in $ORGS; do
   ASSETS=$(gcloud asset search-all-resources --scope="organizations/$org" --asset-types="$ASSET_TYPES" \
     --format="value(assetType,name)" 2>"$ERR") \
     || { skip_check "org $org" "Cloud Asset resource search"; continue; }
+  ASSETS=$(echo "$ASSETS" | drop_excluded)
   if [ -n "$ASSETS" ]; then
-    echo "$ASSETS" | sort | awk -F'\t' -v o="$org" '{n=$2; sub(/^\/\//,"",n); printf "org %s: %s  %s\n", o, $1, n}'
+    echo "$ASSETS" | drop_excluded | sort | awk -F'\t' -v o="$org" '{n=$2; sub(/^\/\//,"",n); printf "org %s: %s  %s\n", o, $1, n}'
     FOUND=true
   fi
 done

@@ -30,7 +30,7 @@ fi
 
 FOUND=false
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   DATASETS=$(bq --headless ls --project_id="$project" --format=json 2>"$ERR" | \
     grep -v '^WARNING:' | jq -r '.[].datasetReference.datasetId' 2>>"$ERR")
   # An empty project (no datasets) makes bq print "[]"/nothing; only a real

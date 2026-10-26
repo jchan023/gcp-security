@@ -17,7 +17,8 @@
 #===============================================================================
 
 ERR=$(mktemp)
-trap 'rm -f "$ERR"' EXIT
+EXCLUDED_FILE="$ERR.excluded"
+trap 'rm -f "$ERR" "$EXCLUDED_FILE"' EXIT
 
 skip_check() {
   local scope="$1" label="$2"
@@ -78,4 +79,50 @@ need_jq() {
     echo "jq is required (https://jqlang.org/download/)" >&2
     exit 1
   fi
+}
+
+#===============================================================================
+# Project scoping. Loaded ONCE when this file is sourced, so every script
+# audits the same set of projects. Nothing here (or anywhere in the repo)
+# names a project - scope comes from patterns and labels at run time:
+#
+#   EXCLUDE_NAME_REGEX  display-name regex to skip (default '^Untitled project$',
+#                       the auto-created Apps Script/Workspace projects). "none"
+#                       disables it.
+#   EXCLUDE_ID_REGEX    project-ID regex to skip (default none), e.g. '^sys-[0-9]+$'
+#   AUDIT_ONLY_SCOPED   "true" = audit only projects carrying a scope_* label
+#                       (scope_pci=true, scope_iso27001=true, scope_soc2=true)
+#
+# Sets AUDIT_PROJECTS (what to iterate), ALL_PROJECT_IDS / ALL_PROJECT_NUMBERS
+# (the whole org, for "is this principal inside the org" checks), and writes
+# every skipped project's ID and number to $EXCLUDED_FILE so org-wide results
+# can drop them with drop_excluded.
+#===============================================================================
+need_jq
+EXCLUDE_NAME_REGEX="${EXCLUDE_NAME_REGEX:-^Untitled project\$}"
+[ "$EXCLUDE_NAME_REGEX" = "none" ] && EXCLUDE_NAME_REGEX=""
+EXCLUDE_ID_REGEX="${EXCLUDE_ID_REGEX:-}"
+[ "$EXCLUDE_ID_REGEX" = "none" ] && EXCLUDE_ID_REGEX=""
+AUDIT_ONLY_SCOPED="${AUDIT_ONLY_SCOPED:-false}"
+
+if ! ALL_PROJECTS_JSON=$(gcloud projects list --format=json 2>"$ERR"); then
+  echo "org: SKIPPED (list projects): $(tr '\n' ' ' < "$ERR" | cut -c1-200)"
+  exit 0
+fi
+[ -z "$ALL_PROJECTS_JSON" ] && ALL_PROJECTS_JSON="[]"
+
+_SELECT='((.name // "") | test($nre) | not) as $n_ok
+  | (if $ire == "" then true else (.projectId | test($ire) | not) end) as $i_ok
+  | (if $only == "true" then ((.labels // {}) | keys | any(startswith("scope_"))) else true end) as $s_ok'
+[ -z "$EXCLUDE_NAME_REGEX" ] && EXCLUDE_NAME_REGEX='(?!)'   # a regex that matches nothing
+_JQARGS=(--arg nre "$EXCLUDE_NAME_REGEX" --arg ire "$EXCLUDE_ID_REGEX" --arg only "$AUDIT_ONLY_SCOPED")
+
+AUDIT_PROJECTS=$(echo "$ALL_PROJECTS_JSON" | jq -r "${_JQARGS[@]}" ".[] | $_SELECT | select(\$n_ok and \$i_ok and \$s_ok) | .projectId")
+echo "$ALL_PROJECTS_JSON" | jq -r "${_JQARGS[@]}" ".[] | $_SELECT | select((\$n_ok and \$i_ok and \$s_ok) | not) | .projectId, .projectNumber" > "$EXCLUDED_FILE"
+ALL_PROJECT_IDS=$(echo "$ALL_PROJECTS_JSON" | jq -r '.[].projectId')
+ALL_PROJECT_NUMBERS=$(echo "$ALL_PROJECTS_JSON" | jq -r '.[].projectNumber')
+
+# Remove lines that mention an excluded project (by ID or number) from stdin.
+drop_excluded() {
+  if [ -s "$EXCLUDED_FILE" ]; then grep -vFf "$EXCLUDED_FILE"; else cat; fi
 }

@@ -26,7 +26,7 @@ to_epoch() {
   fi
 }
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   SAS=$(gcloud iam service-accounts list --project="$project" \
     --format="value(email)" 2>"$ERR") \
       || { skip_check "$project" "service accounts"; SAS=""; }

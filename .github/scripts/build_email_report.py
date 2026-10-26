@@ -22,6 +22,7 @@ from datetime import date
 FINDINGS_DIR = "findings"
 HISTORY_PATH = ".findings-history/history.json"
 DRIFT_FILE = "org_policy_drift.txt"
+SCOPE_PATH = ".scope/scope.json"
 
 TODAY = date.today().isoformat()
 
@@ -70,6 +71,27 @@ def describe_drift_line(line):
     return f"{line}\n    {description}"
 
 
+def load_scope():
+    """{project-id: [framework, ...]} from scope_map.sh, or {} if not built.
+
+    Holds real project IDs, so it lives outside findings/ (never uploaded)
+    and is only used here to tag lines in the emailed report."""
+    if os.path.exists(SCOPE_PATH):
+        with open(SCOPE_PATH) as f:
+            return json.load(f)
+    return {}
+
+
+def scope_tags(line, scope_re, scope):
+    """Frameworks (sorted) for every in-scope project mentioned in the line."""
+    if not scope_re:
+        return []
+    frameworks = set()
+    for pid in scope_re.findall(line):
+        frameworks.update(scope.get(pid, []))
+    return sorted(frameworks)
+
+
 def load_history():
     if os.path.exists(HISTORY_PATH):
         with open(HISTORY_PATH) as f:
@@ -92,6 +114,12 @@ def section(title, items):
 
 def main():
     history = load_history()
+    scope = load_scope()
+    scope_re = (
+        re.compile("|".join(re.escape(p) for p in sorted(scope, key=len, reverse=True)))
+        if scope else None
+    )
+    by_framework = {}
     new_items, existing_items, drift_items, clear_items = [], [], [], []
     seen_keys = set()
 
@@ -116,11 +144,15 @@ def main():
         for line in lines:
             key = f"{check}|{line}"
             seen_keys.add(key)
+            tags = scope_tags(line, scope_re, scope)
+            tag = f"  [{', '.join(t.upper() for t in tags)}]" if tags else ""
+            for t in tags:
+                by_framework[t] = by_framework.get(t, 0) + 1
             if key in history:
-                existing_items.append(f"{check}: {line}  (first seen {history[key]})")
+                existing_items.append(f"{check}: {line}{tag}  (first seen {history[key]})")
             else:
                 history[key] = TODAY
-                new_items.append(f"{check}: {line}")
+                new_items.append(f"{check}: {line}{tag}")
 
     # Drop history entries for findings that no longer appear at all - if
     # one comes back later it correctly shows as new again, rather than
@@ -128,7 +160,13 @@ def main():
     history = {k: v for k, v in history.items() if k in seen_keys}
     save_history(history)
 
+    scope_lines = [
+        f"{fw.upper()}: {n} finding line(s) on in-scope projects" for fw, n in sorted(by_framework.items())
+    ]
+    if scope and not scope_lines:
+        scope_lines = ["No findings on in-scope projects"]
     report = "\n".join([
+        section("By Compliance Scope", scope_lines) if scope else "",
         section("New Findings", new_items),
         section("Existing Findings", existing_items),
         section("Drift", drift_items),

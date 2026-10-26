@@ -54,6 +54,7 @@ for org in $ORGS; do
     2>"$ERR") \
       || { skip_check "org $org" "SCC findings"; HITS=""; }
 
+  HITS=$(echo "$HITS" | drop_excluded)
   if [ -n "$HITS" ]; then
     echo "$HITS" | sed "s/^/org $org: /"
     FOUND=true

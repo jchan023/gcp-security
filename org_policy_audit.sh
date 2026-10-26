@@ -44,7 +44,7 @@ fi
 
 FOUND=false
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   for constraint in "${CONSTRAINTS[@]}"; do
     ENFORCED=$(gcloud resource-manager org-policies describe "$constraint" \
       --project="$project" --effective \

@@ -41,7 +41,7 @@ report_rules() { # scope label policy json
   done <<< "$hits"
 }
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   POLICIES=$(gcloud compute network-firewall-policies list --global --project="$project" \
     --format="value(name)" 2>"$ERR") || { skip_check "$project" "network firewall policies"; continue; }
   for policy in $POLICIES; do

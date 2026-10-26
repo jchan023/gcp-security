@@ -61,7 +61,7 @@ METHOD_FILTER="${METHOD_FILTER% OR }"
 
 FOUND=false
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   ENTRIES=$(gcloud logging read \
     "logName=\"projects/$project/logs/cloudaudit.googleapis.com%2Factivity\" AND timestamp>=\"$SINCE\" AND ($METHOD_FILTER)" \
     --project="$project" \
