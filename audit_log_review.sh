@@ -10,6 +10,7 @@
 # LOOKBACK_HOURS.
 #===============================================================================
 set -uo pipefail
+source "$(dirname "$0")/lib_audit.sh"
 
 LOOKBACK_HOURS="${LOOKBACK_HOURS:-24}"
 
@@ -42,6 +43,20 @@ METHOD_FILTER=""
 for m in "${METHODS[@]}"; do
   METHOD_FILTER="${METHOD_FILTER}protoPayload.methodName=\"$m\" OR "
 done
+# Substring matches (the ":" operator), for method families whose exact name
+# carries a version prefix (v1./beta.compute.firewalls.insert) or where one
+# prefix covers every mutation: firewall rule/policy changes, and bucket IAM
+# changes (storage.setIamPermissions - SetIamPolicy above is project-level
+# only, so a bucket made public never matched it).
+SUBSTRING_METHODS=(
+  "compute.firewalls."
+  "compute.networkFirewallPolicies."
+  "compute.firewallPolicies."
+  "storage.setIamPermissions"
+)
+for m in "${SUBSTRING_METHODS[@]}"; do
+  METHOD_FILTER="${METHOD_FILTER}protoPayload.methodName:\"$m\" OR "
+done
 METHOD_FILTER="${METHOD_FILTER% OR }"
 
 FOUND=false
@@ -52,7 +67,8 @@ for project in $(gcloud projects list --format="value(projectId)"); do
     --project="$project" \
     --order=asc \
     --format="value(timestamp, protoPayload.authenticationInfo.principalEmail, protoPayload.methodName, protoPayload.resourceName)" \
-    2>/dev/null)
+    2>"$ERR") \
+    || { skip_check "$project" "audit log read"; ENTRIES=""; }
 
   if [ -n "$ENTRIES" ]; then
     echo "$ENTRIES" | sed "s/^/$project: /"

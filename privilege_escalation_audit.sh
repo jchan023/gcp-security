@@ -9,6 +9,7 @@
 # Lookback window defaults to 24h; override with LOOKBACK_HOURS.
 #===============================================================================
 set -uo pipefail
+source "$(dirname "$0")/lib_audit.sh"
 
 LOOKBACK_HOURS="${LOOKBACK_HOURS:-24}"
 
@@ -33,7 +34,7 @@ for project in $(gcloud projects list --format="value(projectId)"); do
     "logName=\"projects/$project/logs/cloudaudit.googleapis.com%2Factivity\" AND protoPayload.methodName=\"SetIamPolicy\" AND timestamp>=\"$SINCE\"" \
     --project="$project" \
     --order=asc \
-    --format=json 2>/dev/null \
+    --format=json 2>"$ERR" \
     | jq -r '
         .[] |
         . as $entry |
@@ -47,7 +48,8 @@ for project in $(gcloud projects list --format="value(projectId)"); do
         (.member // "") as $member |
         [$entry.timestamp, $principal, .role, $member,
          (if ($member | endswith($principal)) and ($principal != "") then "SELF-GRANT" else "" end)] | @tsv
-      ')
+      ') \
+    || { skip_check "$project" "audit log read"; HITS=""; }
 
   if [ -n "$HITS" ]; then
     echo "$HITS" | awk -F'\t' -v p="$project" \

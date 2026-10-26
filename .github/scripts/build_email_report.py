@@ -45,6 +45,18 @@ CONSTRAINT_DESCRIPTIONS = {
         "Blocks serial console access to VMs - an alternate, less-audited path into a running instance.",
     "constraints/storage.uniformBucketLevelAccess":
         "Requires IAM-only bucket access, disabling legacy per-object ACLs that can grant access invisibly to IAM checks.",
+    "constraints/storage.publicAccessPrevention":
+        "Blocks buckets/objects from ever being made public (allUsers/allAuthenticatedUsers), regardless of IAM or ACL grants.",
+    "constraints/sql.restrictPublicIp":
+        "Blocks Cloud SQL instances from getting a public IP address.",
+    "constraints/sql.restrictAuthorizedNetworks":
+        "Blocks Cloud SQL authorized-network entries (e.g. 0.0.0.0/0) that open the database to the internet.",
+    "constraints/compute.skipDefaultNetworkCreation":
+        "Stops new projects from auto-creating the default VPC with its permissive pre-made firewall rules.",
+    "constraints/compute.vmExternalIpAccess":
+        "List constraint: limits which VMs may have an external IP. Unset means any VM can be given a public address.",
+    "constraints/iam.allowedPolicyMemberDomains":
+        "List constraint: limits IAM grants to approved domains/orgs. Unset means anyone (any Google account) can be granted access.",
 }
 
 

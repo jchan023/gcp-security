@@ -16,6 +16,7 @@
 # since otherwise jq chokes trying to parse the warning text as JSON.
 #===============================================================================
 set -uo pipefail
+source "$(dirname "$0")/lib_audit.sh"
 
 if ! command -v bq >/dev/null 2>&1; then
   echo "bq CLI is required (part of the Cloud SDK - run 'gcloud components install bq')" >&2
@@ -30,8 +31,13 @@ fi
 FOUND=false
 
 for project in $(gcloud projects list --format="value(projectId)"); do
-  DATASETS=$(bq --headless ls --project_id="$project" --format=json 2>/dev/null | \
-    grep -v '^WARNING:' | jq -r '.[].datasetReference.datasetId')
+  DATASETS=$(bq --headless ls --project_id="$project" --format=json 2>"$ERR" | \
+    grep -v '^WARNING:' | jq -r '.[].datasetReference.datasetId' 2>>"$ERR")
+  # An empty project (no datasets) makes bq print "[]"/nothing; only a real
+  # bq error (stderr output other than the benign scopes warning) is a skip.
+  if grep -qiE 'error|denied|not found|forbidden' "$ERR" && ! grep -qiE 'SERVICE_DISABLED|has not been used|not enabled' "$ERR"; then
+    skip_check "$project" "list BigQuery datasets"
+  fi
 
   for dataset in $DATASETS; do
     HITS=$(bq --headless show --format=prettyjson "${project}:${dataset}" 2>/dev/null | \
