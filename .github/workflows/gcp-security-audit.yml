@@ -39,6 +39,12 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          # The default exports CLOUDSDK_CORE_PROJECT/GCLOUD_PROJECT/... set to the
+          # service account's own project. Every later step prints its env
+          # block into the (public) log before any mask can be registered, so
+          # keep the project ID out of the environment entirely. The audit
+          # scripts always pass --project explicitly.
+          export_environment_variables: false
 
       - uses: google-github-actions/setup-gcloud@v2
         with:
