@@ -21,7 +21,7 @@ need_jq
 UNUSED_DAYS="${UNUSED_DAYS:-90}"
 FOUND=false
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   POLICY=$(gcloud projects get-iam-policy "$project" --format=json 2>"$ERR") \
     || { skip_check "$project" "project IAM policy"; POLICY='{}'; }
   echo "$POLICY" | jq -r '.bindings[]? | select(.role == "roles/editor" or .role == "roles/owner") | .role as $r | .members[]?

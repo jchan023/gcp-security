@@ -10,7 +10,7 @@ source "$(dirname "$0")/lib_audit.sh"
 
 FOUND=false
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   OWNER_EDITOR=$(gcloud projects get-iam-policy "$project" \
     --flatten="bindings[].members" \
     --filter="bindings.role:roles/owner OR bindings.role:roles/editor" \

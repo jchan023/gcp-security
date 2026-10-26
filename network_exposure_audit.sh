@@ -18,9 +18,9 @@ source "$(dirname "$0")/lib_audit.sh"
 need_jq
 
 FOUND=false
-PROJECT_IDS=$(gcloud projects list --format="value(projectId)" 2>"$ERR") || { skip_check "org" "list projects"; PROJECT_IDS=""; }
+PROJECT_IDS="$ALL_PROJECT_IDS"   # peering membership uses the whole org
 
-for project in $PROJECT_IDS; do
+for project in $AUDIT_PROJECTS; do
   VMS=$(gcloud compute instances list --project="$project" \
     --format="value(name,zone.basename(),networkInterfaces[].accessConfigs[].natIP.list())" 2>"$ERR") \
     || { skip_check "$project" "VM instances"; VMS=""; }

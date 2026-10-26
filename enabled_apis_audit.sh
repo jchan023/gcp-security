@@ -24,7 +24,7 @@ HIGH_RISK_APIS=(
 )
 FOUND=false
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   ENABLED=$(gcloud services list --enabled --project="$project" --format="value(config.name)" 2>"$ERR") \
     || { skip_check "$project" "enabled APIs"; continue; }
   for api in "${HIGH_RISK_APIS[@]}"; do

@@ -50,7 +50,7 @@ while IFS=$'\t' read -r acct open; do
   rm -f "$ERR.b"
 done <<< "$ACCOUNTS"
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   INFO=$(gcloud billing projects describe "$project" --format="value(billingEnabled,billingAccountName.basename())" 2>"$ERR") \
     || { skip_check "$project" "billing info"; continue; }
   enabled=$(echo "$INFO" | cut -f1); acct=$(echo "$INFO" | cut -f2)

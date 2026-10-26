@@ -66,7 +66,7 @@ for org in $ORGS; do
   ORG_COVERED=$(covered_services "$POLICY")
 done
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   SINKS=$(gcloud logging sinks list --project="$project" --format="value(name,destination,disabled)" 2>"$ERR") \
     || { skip_check "$project" "log sinks"; SINKS=""; }
   while IFS=$'\t' read -r name dest disabled; do

@@ -24,7 +24,7 @@ need_jq
 
 FOUND=false
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   NETWORKS=$(gcloud compute networks list --project="$project" --format="value(name)" 2>"$ERR") \
     || { skip_check "$project" "networks"; continue; }
   [ -z "$NETWORKS" ] && continue

@@ -24,7 +24,7 @@ source "$(dirname "$0")/lib_audit.sh"
 
 FOUND=false
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   RULES=$(gcloud compute firewall-rules list --project="$project" \
     --format="value(name, network.basename(), direction, disabled, priority, destinationRanges.list(), allowed[].map().firewall_rule().list(), denied[].map().firewall_rule().list())" 2>"$ERR") \
     || { skip_check "$project" "firewall rules"; continue; }

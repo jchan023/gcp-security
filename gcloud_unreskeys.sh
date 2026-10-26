@@ -9,7 +9,7 @@ source "$(dirname "$0")/lib_audit.sh"
 
 FOUND=false
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   KEYS=$(gcloud services api-keys list --project="$project" \
     --filter="NOT restrictions:*" \
     --format="value(displayName, uid)" 2>"$ERR") \

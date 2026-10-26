@@ -62,7 +62,7 @@ for org in $ORGS; do
 done
 
 KEYS_REGEX=$(printf '%s|' "${BOOL_KEYS[@]}" "${LIST_KEYS[@]}"); KEYS_REGEX="^(${KEYS_REGEX%|})\$"
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   POLICIES=$(gcloud resource-manager org-policies list --project="$project" --format=json 2>"$ERR") \
     || { skip_check "$project" "project org-policy overrides"; continue; }
   [ -z "$POLICIES" ] && continue

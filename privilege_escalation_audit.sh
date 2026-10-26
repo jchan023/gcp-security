@@ -29,7 +29,7 @@ fi
 
 FOUND=false
 
-for project in $(gcloud projects list --format="value(projectId)"); do
+for project in $AUDIT_PROJECTS; do
   HITS=$(gcloud logging read \
     "logName=\"projects/$project/logs/cloudaudit.googleapis.com%2Factivity\" AND protoPayload.methodName=\"SetIamPolicy\" AND timestamp>=\"$SINCE\"" \
     --project="$project" \
