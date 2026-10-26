@@ -8,11 +8,13 @@
 # applies everywhere.
 #
 # Constraint list is a starting point, not exhaustive - tune to your org.
-# Deliberately limited to boolean constraints (allow/deny list constraints
-# like compute.vmExternalIpAccess need different parsing and aren't checked
-# here).
+# Boolean constraints are checked for "enforced"; list constraints (e.g.
+# compute.vmExternalIpAccess, iam.allowedPolicyMemberDomains) are checked
+# separately below for being left unrestricted (allValues: ALLOW, or no list
+# policy set at all).
 #===============================================================================
 set -uo pipefail
+source "$(dirname "$0")/lib_audit.sh"
 
 CONSTRAINTS=(
   "constraints/iam.disableServiceAccountKeyCreation"
@@ -22,7 +24,23 @@ CONSTRAINTS=(
   "constraints/compute.requireShieldedVm"
   "constraints/compute.disableSerialPortAccess"
   "constraints/storage.uniformBucketLevelAccess"
+  "constraints/storage.publicAccessPrevention"
+  "constraints/sql.restrictPublicIp"
+  "constraints/sql.restrictAuthorizedNetworks"
+  "constraints/compute.skipDefaultNetworkCreation"
 )
+
+# List constraints that should have an explicit allow/deny list. A finding
+# means the constraint is unset or set to allow-all.
+LIST_CONSTRAINTS=(
+  "constraints/compute.vmExternalIpAccess"
+  "constraints/iam.allowedPolicyMemberDomains"
+)
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is required (https://jqlang.org/download/)" >&2
+  exit 1
+fi
 
 FOUND=false
 
@@ -34,6 +52,21 @@ for project in $(gcloud projects list --format="value(projectId)"); do
 
     if [ "$ENFORCED" != "True" ]; then
       echo "$project: $constraint NOT enforced"
+      FOUND=true
+    fi
+  done
+
+  for constraint in "${LIST_CONSTRAINTS[@]}"; do
+    POLICY=$(gcloud resource-manager org-policies describe "$constraint" \
+      --project="$project" --effective --format=json 2>"$ERR") \
+      || { skip_check "$project" "$constraint"; continue; }
+    STATE=$(echo "$POLICY" | jq -r '
+      if (.listPolicy.allValues == "DENY")
+         or ((.listPolicy.allowedValues // []) | length > 0)
+         or ((.listPolicy.deniedValues // []) | length > 0)
+      then "restricted" else "open" end' 2>/dev/null)
+    if [ "$STATE" != "restricted" ]; then
+      echo "$project: $constraint NOT enforced (no allow/deny list set - unrestricted)"
       FOUND=true
     fi
   done

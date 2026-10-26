@@ -6,6 +6,7 @@
 # permission set can be arbitrarily broad.
 #===============================================================================
 set -uo pipefail
+source "$(dirname "$0")/lib_audit.sh"
 
 FOUND=false
 
@@ -13,7 +14,8 @@ for project in $(gcloud projects list --format="value(projectId)"); do
   OWNER_EDITOR=$(gcloud projects get-iam-policy "$project" \
     --flatten="bindings[].members" \
     --filter="bindings.role:roles/owner OR bindings.role:roles/editor" \
-    --format="value(bindings.role, bindings.members)" 2>/dev/null)
+    --format="value(bindings.role, bindings.members)" 2>"$ERR") \
+      || { skip_check "$project" "primitive roles"; OWNER_EDITOR=""; }
 
   if [ -n "$OWNER_EDITOR" ]; then
     echo "$OWNER_EDITOR" | sed "s/^/$project [primitive role]: /"
@@ -23,7 +25,8 @@ for project in $(gcloud projects list --format="value(projectId)"); do
   CUSTOM_ROLES=$(gcloud projects get-iam-policy "$project" \
     --flatten="bindings[].members" \
     --filter="bindings.role:projects/ OR bindings.role:organizations/" \
-    --format="value(bindings.role, bindings.members)" 2>/dev/null)
+    --format="value(bindings.role, bindings.members)" 2>"$ERR") \
+      || { skip_check "$project" "custom roles"; CUSTOM_ROLES=""; }
 
   if [ -n "$CUSTOM_ROLES" ]; then
     echo "$CUSTOM_ROLES" | sed "s/^/$project [custom role, review manually]: /"

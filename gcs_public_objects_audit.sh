@@ -10,17 +10,20 @@
 # buckets with very large object counts.
 #===============================================================================
 set -uo pipefail
+source "$(dirname "$0")/lib_audit.sh"
 
 FOUND=false
 
 for project in $(gcloud projects list --format="value(projectId)"); do
-  BUCKETS=$(gcloud storage buckets list --project="$project" --format="value(name)" 2>/dev/null)
+  BUCKETS=$(gcloud storage buckets list --project="$project" --format="value(name)" 2>"$ERR") \
+    || { skip_check "$project" "list buckets"; BUCKETS=""; }
 
   for bucket in $BUCKETS; do
     # Public Access Prevention not enforced = allUsers/allAuthenticatedUsers
     # grants (IAM or ACL) are not blocked at the bucket level.
     PAP=$(gcloud storage buckets describe "gs://$bucket" \
-      --format="value(public_access_prevention)" 2>/dev/null)
+      --format="value(public_access_prevention)" 2>"$ERR") \
+      || { skip_check "$project" "describe gs://$bucket"; continue; }
     if [ "$PAP" != "enforced" ]; then
       echo "$project [bucket gs://$bucket]: Public Access Prevention not enforced (${PAP:-inherited})"
       FOUND=true
@@ -29,7 +32,8 @@ for project in $(gcloud projects list --format="value(projectId)"); do
     # Fine-grained (non-uniform) buckets rely on legacy ACLs, which can grant
     # public access independently of IAM bindings - flag so it gets reviewed.
     UBLA=$(gcloud storage buckets describe "gs://$bucket" \
-      --format="value(uniform_bucket_level_access)" 2>/dev/null)
+      --format="value(uniform_bucket_level_access)" 2>"$ERR") \
+      || { skip_check "$project" "describe gs://$bucket"; continue; }
     if [ "$UBLA" != "True" ]; then
       echo "$project [bucket gs://$bucket]: uniform bucket-level access disabled (legacy ACLs in play)"
       FOUND=true
