@@ -39,12 +39,28 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          # The default exports CLOUDSDK_CORE_PROJECT/GCLOUD_PROJECT/... set to the
-          # service account's own project. Every later step prints its env
-          # block into the (public) log before any mask can be registered, so
-          # keep the project ID out of the environment entirely. The audit
-          # scripts always pass --project explicitly.
+          # The default would export CLOUDSDK_CORE_PROJECT/GCLOUD_PROJECT/...
+          # set to the service account's own project, and every later step
+          # prints its env block into the (public) log before any mask can be
+          # registered. Turn that off and export what gcloud needs ourselves,
+          # with the project ID masked first - see the next step.
           export_environment_variables: false
+
+      - name: Configure gcloud environment (project ID masked)
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }} # secret: masked even in this step's env header
+          CREDS_FILE: ${{ steps.auth.outputs.credentials_file_path }}
+        run: |
+          # name@<project>.iam.gserviceaccount.com -> <project>
+          PROJECT="${SERVICE_ACCOUNT#*@}"; PROJECT="${PROJECT%%.*}"
+          echo "::add-mask::$PROJECT"
+          {
+            echo "CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE=$CREDS_FILE"
+            echo "GOOGLE_APPLICATION_CREDENTIALS=$CREDS_FILE"
+            for v in CLOUDSDK_CORE_PROJECT CLOUDSDK_PROJECT GCLOUD_PROJECT GCP_PROJECT GOOGLE_CLOUD_PROJECT; do
+              echo "$v=$PROJECT"
+            done
+          } >> "$GITHUB_ENV"
 
       - uses: google-github-actions/setup-gcloud@v2
         with:
@@ -170,6 +186,13 @@ jobs:
       - name: Findings summary
         if: always()
         run: |
+          # The scripts exit 0 after printing SKIPPED, so a run that never
+          # reached the org (bad credentials, no access) would otherwise be
+          # reported as a green run with an empty audit.
+          if grep -rq "SKIPPED (list projects)" findings/; then
+            echo "::error::The audit could not list projects - nothing was audited."
+            exit 1
+          fi
           COUNT=$(grep -rL "^No " findings/ | wc -l | tr -d ' ')
           if [ "$COUNT" -gt 0 ]; then
             echo "::notice::$COUNT check(s) have findings - see the email (and the 'gcp-security-findings' artifact on private repos)"
