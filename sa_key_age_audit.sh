@@ -5,6 +5,7 @@
 # the most common ways stale credentials end up leaked or forgotten about.
 #===============================================================================
 set -uo pipefail
+source "$(dirname "$0")/lib_audit.sh"
 
 MAX_KEY_AGE_DAYS="${MAX_KEY_AGE_DAYS:-90}"
 NOW_EPOCH=$(date -u +%s)
@@ -27,12 +28,14 @@ to_epoch() {
 
 for project in $(gcloud projects list --format="value(projectId)"); do
   SAS=$(gcloud iam service-accounts list --project="$project" \
-    --format="value(email)" 2>/dev/null)
+    --format="value(email)" 2>"$ERR") \
+      || { skip_check "$project" "service accounts"; SAS=""; }
 
   for sa in $SAS; do
     KEYS=$(gcloud iam service-accounts keys list --iam-account="$sa" \
       --project="$project" --managed-by=user \
-      --format="value(name.basename(), validAfterTime)" 2>/dev/null)
+      --format="value(name.basename(), validAfterTime)" 2>"$ERR") \
+        || { skip_check "$project" "keys for $sa"; KEYS=""; }
 
     [ -z "$KEYS" ] && continue
 
